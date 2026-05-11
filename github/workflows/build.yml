@@ -1,0 +1,48 @@
+name: Universal APK Factory
+on:
+  repository_dispatch:
+    types: [build_apk]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Build Logic
+        run: |
+          # تحديد اللغة وحفظ الكود في الملف المناسب
+          if [ "${{ github.event.client_payload.language }}" == "html" ]; then
+            echo "Building Web App..."
+            echo "${{ github.event.client_payload.python_code }}" > index.html
+            # هنا ممكن نستخدم أداة تحويل الويب لـ APK مستقبلاً
+          else
+            echo "Building Python App..."
+            echo "${{ github.event.client_payload.python_code }}" > main.py
+          fi
+
+      - name: Install Buildozer & Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip build-essential git python3 python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev
+          pip install --upgrade pip
+          pip install buildozer cython==0.29.33
+
+      - name: Build APK
+        run: |
+          buildozer init
+          sed -i "s/^title = .*/title = ${{ github.event.client_payload.app_name }}/" buildozer.spec
+          buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.client_payload.app_name }}-Package
+          path: bin/*.apk
+          
